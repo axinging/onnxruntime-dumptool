@@ -500,21 +500,21 @@ export class OnnxDumpData {
         'type': tensorDataTypeFromProto(i.dataType),
       };
       const regName = i.name.replace(/\//g, '_').replace(/:/g, '_');
-      console.log('namedebug: ' + regName);
+      // console.log('namedebug: ' + regName);
       // writeObjectToFile(tensor, regName);
       this.dumpDataMap.set(regName, tensor);
       ;
     }
   }
 
-  // Get the input put data.
+  // Get the input output data.
   async setupInputOutputs() {
     if (window.onnxDumpBlobUrlMap == null) {
       throw new Error('window.onnxDumpBlobUrlMap is NULL!');
     }
     const blobUrlMap = window.onnxDumpBlobUrlMap;
     for (const [key, value] of blobUrlMap.entries()) {
-      console.log('namedebug: ' + key);
+      // console.log('namedebug: ' + key);
       const blobObject = await readObjectFromFile(value);
       this.dumpDataMap.set(key, blobObject);
     }
@@ -567,8 +567,8 @@ export class OnnxDumpData {
       console.error(`Failed to inference ONNX model: ${e}.`);
     }
 
-    console.log(window.optmizedModelBlobUrl);
-    const response = await fetch(window.optmizedModelBlobUrl);
+    console.log(window.onnxDumpOptmizedModelBlobUrl);
+    const response = await fetch(window.onnxDumpOptmizedModelBlobUrl);
     const blob = await response.blob();
     this.optimizedModelBuffer = new Uint8Array(await blob.arrayBuffer());
     // await session.release();
@@ -787,5 +787,5 @@ export async function dump(
     await dumpDataMap.compare();
     dumpDataMap.release();
   }
-  console.log("Dump time: " + Math.round([(performance.now() - dumpBeginTime)/1000]) + "s.");
+  console.log("Dump time: " + Math.round((performance.now() - dumpBeginTime)/1000) + "s.");
 }
