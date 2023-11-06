@@ -95,11 +95,7 @@
       } else {
         urls = ['https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.webgpu.min.js'];
       }
-      let binary = 'dump';
-      if(getParam('dump') == 2) {
-        binary = 'dump';
-      }
-      urls = [`./web_${binary}/dist/ort.all.js`];
+      urls = [`./web/dist/ort.all.js`];
       // urls = urls.concat(['./dump.js']);
       urls = urls.concat(['./ort-toolkit/models.js', './ort-toolkit/util.js']);
       for (let url of urls) {

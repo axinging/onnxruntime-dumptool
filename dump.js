@@ -451,7 +451,8 @@ function getDirInfo(modelName, graphOptimizationLevel) {
   const optimizedModelDataName =
       modelName + '-' + graphOptimizationLevel + '-data.json';
   const modelDir = './ort-models/';
-  const modelDataDir = modelDir + modelName + '-' + graphOptimizationLevel + '/';
+  const modelDataDir =
+      modelDir + modelName + '-' + graphOptimizationLevel + '/';
   return [modelDir, modelDataDir, optimizedModelName, optimizedModelDataName];
 }
 
@@ -476,8 +477,10 @@ export class OnnxDumpData {
     // optimizedModelDataName:  weights and i/o data of model.
     const [modelDir, modelDataDir, optimizedModelName, optimizedModelDataName] =
         getDirInfo(modelName, graphOptimizationLevel);
-    Object.assign(this, {modelDir, modelDataDir, optimizedModelName, optimizedModelDataName});
-    this.modelUrl = this.modelDir + this.modelName + ".onnx";
+    Object.assign(
+        this,
+        {modelDir, modelDataDir, optimizedModelName, optimizedModelDataName});
+    this.modelUrl = this.modelDir + this.modelName + '.onnx';
     // Type ort.Model.
     this.model = null;
     this.referenceBackend = 'wasm';
@@ -531,7 +534,8 @@ export class OnnxDumpData {
     console.log('Dump - Generate input output data.');
     // Generate other dump data: input, output.
     window.dump = 1;
-    await onnxModelInferenceFn('performance', this.referenceBackend, this.modelUrl);
+    await onnxModelInferenceFn(
+        'performance', this.referenceBackend, this.modelUrl);
     window.dump = 0;
     await this.setupInputOutputs();
   }
@@ -592,7 +596,8 @@ export class OnnxDumpData {
       // when cmp only, this means the dump data is from seperated file.
       this.dumpDataMap = this.dumpOrCmp == 2 ?
           null :
-          await readObjectFromFile(this.modelDataDir + this.optimizedModelDataName);
+          await readObjectFromFile(
+              this.modelDataDir + this.optimizedModelDataName);
     }
   }
 
@@ -683,8 +688,6 @@ export class OnnxDumpData {
         compareIgnoreType(reference, result1.output_0.cpuData);
 
     const compareSummary = {
-      model: this.modelName,
-      backend: `${this.referenceBackend} vs ${this.actualBackend}`,
       result: compareResult,
       opType: graphPlan['name'],
       node: graphPlan['cases'][0]['name']
@@ -728,7 +731,13 @@ export class OnnxDumpData {
             await this.compareSingleNode(node, dumpDataMap, modelName, model);
         compareSummaries.push(compareSummary);
       }
-      writeObjectToFile(compareSummaries, modelName + '-summary.json');
+      writeObjectToFile(
+          {
+            model: this.modelName,
+            backend: `${this.referenceBackend} vs ${this.actualBackend}`,
+            summary: compareSummaries
+          },
+          modelName + '-summary.json');
     }
     console.log('Compare - End.');
   }
