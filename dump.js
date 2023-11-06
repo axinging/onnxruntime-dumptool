@@ -771,7 +771,7 @@ export async function dump(
     modelName, onnxModelInferenceFn, graphOptimizationLevel = 'disabled',
     dumpOrCmp = '0') {
   const useFile = dumpOrCmp != 0;
-
+  const dumpBeginTime = performance.now();
   const dumpDataMap =
       new OnnxDumpData(modelName, graphOptimizationLevel, dumpOrCmp);
   if (dumpOrCmp != 2) {
@@ -787,4 +787,5 @@ export async function dump(
     await dumpDataMap.compare();
     dumpDataMap.release();
   }
+  console.log("Dump time: " + Math.round([(performance.now() - dumpBeginTime)/1000]) + "s.");
 }
