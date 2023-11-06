@@ -509,10 +509,10 @@ export class OnnxDumpData {
 
   // Get the input put data.
   async setupInputOutputs() {
-    if (window.dumpBlobUrlMap == null) {
-      throw new Error('window.dumpBlobUrlMap is NULL!');
+    if (window.onnxDumpBlobUrlMap == null) {
+      throw new Error('window.onnxDumpBlobUrlMap is NULL!');
     }
-    const blobUrlMap = window.dumpBlobUrlMap;
+    const blobUrlMap = window.onnxDumpBlobUrlMap;
     for (const [key, value] of blobUrlMap.entries()) {
       console.log('namedebug: ' + key);
       const blobObject = await readObjectFromFile(value);
@@ -521,10 +521,10 @@ export class OnnxDumpData {
   }
 
   async setup(onnxModelInferenceFn) {
-    window.dump = 2;
+    window.onnxDump = 2;
     const optimizedModelBuffer = await this.getOptimizedModel();
     const optimizedModelName = this.optimizedModelName;
-    window.dump = 0;
+    window.onnxDump = 0;
     if (this.useFile) {
       writeTypedArrayToFile(optimizedModelBuffer, optimizedModelName);
     }
@@ -533,10 +533,10 @@ export class OnnxDumpData {
     await this.setupWeights(optimizedModelBuffer);
     console.log('Dump - Generate input output data.');
     // Generate other dump data: input, output.
-    window.dump = 1;
+    window.onnxDump = 1;
     await onnxModelInferenceFn(
         'performance', this.referenceBackend, this.modelUrl);
-    window.dump = 0;
+    window.onnxDump = 0;
     await this.setupInputOutputs();
   }
 
