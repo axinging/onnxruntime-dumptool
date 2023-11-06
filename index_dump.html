@@ -1,0 +1,428 @@
+<meta http-equiv="Permissions-Policy" content="interest-cohort=(), user-id=()" />
+
+<body>
+  <h1 align='center'>ONNX Runtime Toolkit</h1>
+  <h2 align='center' id='status'></h2>
+  <text>
+    <b>Usage</b>
+    <p>Chrome options: '--enable-dawn-features=allow_unsafe_apis,use_dxc --enable-features=SharedArrayBuffer'</p>
+    <li>--enable-dawn-features=allow_unsafe_apis: Make timestamp query work</li>
+    <li>--enable-dawn-features=use_dxc: Enable DXC instead of FXC for WGSL compilation</li>
+    <li>--enable-features=SharedArrayBuffer: Enable SharedArrayBuffer otherwise you may get 'TypeError: Cannot convert a
+      BigInt value to a number'</li>
+
+    <p>If you encounter cross origin issue, you may install Chrome extension "CORS Unblock"
+      (https://chrome.google.com/webstore/detail/cors-unblock/lfhmikememgdcahcdlaciloancbhjino?hl=en) and enable it.</p>
+
+    <p>To manage OPFS (Origin Private File System), you may install Chrome extension OPFS Explorer:
+      https://chrome.google.com/webstore/detail/opfs-explorer/acndjpgkpaclldomagafnognkcgjignd</p>
+
+    <p>Some parameters are supported in url, and you may use them as 'index.html?key0=value0&key1=value1...'. Supported
+      parameters are:</p>
+    <li>ep: execution provider. E.g., webgpu, wasm</li>
+    <li>layout=[NCHW|NHWC]. NHWC is the default.</li>
+    <li>modelName: name of modelName. E.g., mobilenetv2-12</li>
+    <li>modelUrl=[hf|server|[url]]. Note that if you provide the url, you may fail to execute the modelName as the
+      inputs are not defined well.</li>
+    <li>ortUrl: ort url. Example: ortUrl=https://wp-27.sh.intel.com/workspace/project/onnxruntime
+    <li>runTimes: Run times</li>
+    <li>tasks=[task0,task1,task2]: tasks to run, split by ','. Candidates are 'conformance', 'performance',
+      'ortProfiling', 'webgpuProfiling'.</li>
+    <li>updateModel=[true|false]. False (default) means no update.</li>
+    <li>warmupTimes: Warmup times</li>
+    <li>wasmThreads: wasm threads number</li>
+    <li>Example:
+      https://wp-27.sh.intel.com/workspace/project/webatintel/ort-toolkit/?tasks=conformance&modelName=mobilenetv2-12&ep=webgpu&ortUrl=https://wp-27.sh.intel.com/workspace/project/onnxruntime&warmupTimes=10&runTimes=10
+    </li>
+    <p></p>
+    <b>Test Results</b>
+  </text>
+  <link href="./ort-toolkit/sortable.min.css" rel="stylesheet" />
+  <script src="./ort-toolkit/sortable.min.js"></script>
+  <!--script src="./web_cmp/dist/ort.all.js"></script-->
+  <!--script  type="module" src="dump.js"></script-->
+  <style>
+    .highlight {
+      background-color: yellow;
+    }
+  </style>
+  <script type="module">
+    'use strict';
+    const disableBuffer = getParam('disableBuffer') === 'true' || true;
+    const ep = getParam('ep') || 'webgpu';
+    const layout = getParam('layout') || 'NHWC';
+    const modelName = getParam('modelName') || 'mobilenetv2-12';//'albert-base-v2';
+    let modelUrl = getParam('modelUrl') || 'server';
+    if (modelUrl === 'hf') {
+      modelUrl = `https://huggingface.co/webatintel/ort-models/resolve/main/${modelName}.onnx`;
+    } else if (modelUrl === 'server') {
+      modelUrl = `${window.location.origin}/${window.location.pathname}ort-models/${modelName}.onnx`;
+    }
+    modelUrl = `ort-models/${modelName}.onnx`;
+    const ortUrl = getParam('ortUrl');
+    let runTimes = getParam('runTimes') || 1;
+    runTimes = parseInt(runTimes);
+    const tasks = getParam('tasks') || 'dump';
+    const updateModel = getParam('updateModel') === 'true' || false;
+    let warmupTimes = getParam('warmupTimes') || 0;
+    warmupTimes = parseInt(warmupTimes);
+    const wasmThreads = parseInt(getParam('wasmThreads')) || 1;
+
+    // for developers
+    let device = getParam('device') || 'gpu';
+    if (ep === 'webgpu') {
+      device = 'gpu';
+    }
+
+    const enableConsole = getParam('enableConsole') === 'true' || false;
+    const enableVerbose = getParam('enableVerbose') === 'true' || false;
+    const power = getParam('power') || 'default';
+
+    // globals
+    let ortProfilingData = [];
+    let ortProfilingIndex = 0;
+    let webgpuProfilingData = [];
+    let webgpuProfilingIndex = 0;
+    let warmupTimesLeft = warmupTimes;
+    const displayPrecision = 2;
+    const unitConversionFactor = 1000000;
+    let feeds;
+
+    async function loadScript2() {
+      let urls;
+      if (ortUrl) {
+        urls = [`${ortUrl}/js/web/dist/ort.webgpu.min.js`];
+      } else {
+        urls = ['https://cdn.jsdelivr.net/npm/onnxruntime-web@latest/dist/ort.webgpu.min.js'];
+      }
+      let binary = 'dump';
+      if(getParam('dump') == 2) {
+        binary = 'dump';
+      }
+      urls = [`./web_${binary}/dist/ort.all.js`];
+      // urls = urls.concat(['./dump.js']);
+      urls = urls.concat(['./ort-toolkit/models.js', './ort-toolkit/util.js']);
+      for (let url of urls) {
+        await loadScript(url);
+      }
+    }
+
+    async function main() {
+      await loadScript2();
+      const dump = await import('./dump.js');
+      for (let task of tasks.split(',')) {
+        if (task === 'dump') {
+          await dump.dump(modelName, runTask, getParam('optlevel')||'disabled', getParam('dump')||0);
+        } else if (task === 'conformance') {
+          let epOutput = await runTask('conformance', ep);
+          let cpuOutput = await runTask('conformance', 'wasm');
+          renderTask(task, [epOutput, cpuOutput]);
+        } else {
+          let times = await runTask(task, ep);
+          renderTask(task, times);
+        }
+        reportStatus(`Finished task ${task}`);
+      }
+    }
+
+    // For ortProfiling, session.endProfiling will dump results of all runs, so we couldn't have a session run multiple times.
+    // For webgpuProfiling, layout conversion is done in first run, so we need to collect data of second run.
+    async function runTask(task, ep, modelUrl) {
+      let modelBuffer;
+      let oldConsoleLog;
+      let session;
+      let sessionStartTime = performance.now();
+      let times = [];
+      let totalTime = 0;
+
+      const getModelStartTime = performance.now();
+      if (!disableBuffer) {
+        modelBuffer = await getModelOPFS(modelName, modelUrl, updateModel);
+      }
+      const elapsedTime = parseFloat((performance.now() - getModelStartTime).toFixed(2));
+      console.info(`${elapsedTime}ms was used to get model`);
+
+      const option = {
+        executionProviders: [
+          {
+            name: ep,
+            deviceType: device,
+            powerPreference: power,
+            preferredLayout: layout,
+          },
+        ],
+      };
+
+      if (ep === 'wasm') {
+        ort.env.wasm.numThreads = wasmThreads;
+        ort.env.wasm.simd = true;
+      } else if (ep === 'webnn') {
+        ort.env.wasm.simd = true;
+        ort.env.wasm.proxy = true;
+        option.freeDimensionOverrides = true;
+      }
+      // option.graphOptimizationLevel = "all";
+      option.graphOptimizationLevel = "all";
+
+      if (task != 'ortProfiling') {
+        const sessionCreateStartTime = performance.now();
+        if (disableBuffer) {
+          session = await ort.InferenceSession.create(modelUrl, option);
+        } else {
+          session = await ort.InferenceSession.create(modelBuffer, option);
+        }
+        if (feeds === undefined) {
+          feeds = getFeeds(session, modelName);
+        }
+        const elapsedTime = parseFloat((performance.now() - sessionCreateStartTime).toFixed(2));
+        console.info(`${elapsedTime}ms was used to create session`);
+      }
+
+      // Not sure why this doesn't work for WebNN
+      if (!enableConsole && task.endsWith('Profiling')) {
+        oldConsoleLog = console.log;
+        console.log = processConsole;
+      }
+
+      for (let i = 0; i < warmupTimes + runTimes; i++) {
+        if (!sessionStartTime) {
+          sessionStartTime = performance.now();
+        }
+        reportStatus(`Running task ${task} ${i} ...`);
+        if (i === warmupTimes && task === 'ortProfiling') {
+          option.enableProfiling = true;
+        }
+
+        if ((i === warmupTimes + 1 || runTimes == 1) && task === 'webgpuProfiling') {
+          ort.env.webgpu.profilingMode = 'default';
+        }
+
+        if (task === 'ortProfiling') {
+          const sessionCreateStartTime = performance.now();
+          if (disableBuffer) {
+            session = await ort.InferenceSession.create(modelUrl, option);
+          } else {
+            session = await ort.InferenceSession.create(modelBuffer, option);
+          }
+          feeds = getFeeds(session, modelName);
+          const elapsedTime = parseFloat((performance.now() - sessionCreateStartTime).toFixed(2));
+          console.info(`${elapsedTime}ms was used to create session`);
+        }
+
+        let results;
+        if (ep === 'webnn') {
+          // Without clone(), you get DOMException: Failed to execute 'postMessage' on 'Worker': ArrayBuffer at index 0 is already detached.
+          results = await session.run(clone(feeds));
+        } else {
+          results = await session.run(feeds);
+        }
+        if (task === 'conformance') {
+          let result = results[session.outputNames[0]]['data'];
+          return result;
+        }
+        if (i === 0 || i >= warmupTimes) {
+          const elapsedTime = parseFloat((performance.now() - sessionStartTime).toFixed(2));
+          times.push(elapsedTime);
+        }
+        sessionStartTime = null;
+
+        if (i === warmupTimes && task === 'ortProfiling') {
+          session.endProfiling();
+          break;
+        }
+
+        if ((i === warmupTimes + 1 || runTimes == 1) && task === 'webgpuProfiling') {
+          ort.env.webgpu.profilingMode = '';
+          break;
+        }
+      }
+
+      if (!enableConsole && task.endsWith('Profiling')) {
+        console.log = oldConsoleLog;
+      }
+
+      return times;
+    }
+
+    function getParam(name) {
+      name = name.replace(/[\[\]]/g, '\\$&');
+      let regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)', 'i');
+      let results = regex.exec(window.location.href);
+      if (!results)
+        return null;
+      if (!results[2])
+        return '';
+      return decodeURIComponent(results[2].replace(/\+/g, ' '));
+    }
+
+    async function loadScript(url) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        if(url == "./dump.js") {
+          script.type = 'module';
+        }
+        script.onload = resolve;
+        script.onerror = reject;
+        script.src = url;
+        if (url.startsWith('http')) {
+          script.crossOrigin = 'anonymous';
+        }
+        document.body.append(script);
+      })
+    }
+
+    function renderTask(task, data) {
+      let taskElement = document.createElement('p');
+      document.body.appendChild(taskElement);
+      taskElement.innerText = `[${task} results]`;
+
+      let resultElement = document.createElement('p');
+      document.body.appendChild(resultElement);
+      resultElement.id = 'result';
+      let result = {};
+
+      if (task === 'conformance') {
+        result['result'] = compare(data[0], data[1]);
+
+        for (let i = 0; i < data.length; i++) {
+          console.info(data[i]);
+        }
+      } else if (task === 'performance') {
+        let details = data.join(', ');
+        let detailsElement = document.createElement('p');
+        document.body.appendChild(detailsElement);
+        detailsElement.innerText = details;
+
+        result['first'] = data[0];
+        data.shift();
+        let totalTime = getSum(data);
+        let averageTime = parseFloat((totalTime / data.length).toFixed(2));
+        result['average'] = averageTime;
+        result['best'] = Math.min(...data);
+      }
+      if (task === 'conformance' || task === 'performance') {
+        resultElement.innerText = JSON.stringify(result);
+        return;
+      }
+
+      // profiling
+      resultElement.innerText = `${data[data.length - 1]}ms`;
+      if (task === 'ortProfiling') {
+        renderProfiling(['Index', 'Kernel', 'Time (ms)', 'Shape', 'Provider'], ortProfilingData);
+      }
+      if (task === 'webgpuProfiling') {
+        renderAggregatedProfiling(['Kernel', 'Time (ms)', 'Percentage (%)'], webgpuProfilingData);
+        renderProfiling(['Index', 'Kernel', 'Time (ms)', 'Shape'], webgpuProfilingData);
+      }
+    }
+
+    function renderAggregatedProfiling(heads, data) {
+      let kernelTime = {};
+      for (let d of data) {
+        let kernel = d[1];
+        if (!(kernel in kernelTime)) {
+          kernelTime[kernel] = d[2];
+        } else {
+          kernelTime[kernel] += d[2];
+        }
+      }
+      let totalTime = getSum(Object.values(kernelTime));
+      let keys = Object.keys(kernelTime);
+      let sortedKernelTime = keys.sort(function (a, b) {
+        return kernelTime[b] - kernelTime[a];
+      });
+      let sortedAggregatedData = [];
+      for (let kernel of sortedKernelTime) {
+        let time = kernelTime[kernel];
+        sortedAggregatedData.push([kernel, time, (time / totalTime * 100).toFixed(2)]);
+      }
+
+      renderProfiling(heads, sortedAggregatedData);
+    }
+
+    function renderProfiling(heads, data) {
+      let row, th, td;
+
+      // table
+      let table = document.createElement('table');
+      table.className = 'sortable';
+      table.align = 'center';
+      table.style.width = '80%';
+      table.setAttribute('border', '1');
+      document.body.appendChild(table);
+
+      // thead
+      let header = table.createTHead('thead');
+      row = header.insertRow(0);
+      row.style.fontWeight = 'bold';
+      for (let head of heads) {
+        let th = document.createElement('th');
+        th.innerHTML = head;
+        row.appendChild(th);
+      }
+
+      // tbody
+      let tbody = document.createElement('tbody');
+      table.appendChild(tbody);
+      // rest of line
+      for (let i = 0; i < data.length; ++i) {
+        let rowInfo = data[i];
+        row = tbody.insertRow(i);
+        row.onclick = function () { toggleClass(this, 'highlight'); };
+        for (let j = 0; j < heads.length; j++) {
+          td = row.insertCell(j);
+          let cellInfo = rowInfo[j];
+          if (heads[j].startsWith('Time')) {
+            cellInfo = cellInfo.toFixed(displayPrecision);
+          }
+          td.innerHTML = cellInfo;
+        }
+      }
+
+      // tfoot
+      let tfoot = document.createElement('tfoot');
+      table.appendChild(tfoot);
+      row = tfoot.insertRow(0);
+      row.style.fontWeight = 'bold';
+      let sums = new Array(heads.length).fill('');
+      sums[0] = 'Sum';
+      for (let i = 0; i < heads.length; ++i) {
+        if (!heads[i].startsWith('Time')) {
+          continue;
+        }
+
+        let sum = 0;
+        for (let j = 0; j < data.length; j++) {
+          sum += data[j][i];
+        }
+        sums[i] = sum.toFixed(displayPrecision);
+      }
+      for (let i = 0; i < heads.length; ++i) {
+        td = row.insertCell(i);
+        td.innerHTML = sums[i];
+      }
+
+      // blank line
+      document.body.appendChild(document.createElement('p'));
+    }
+
+    function processConsole(content) {
+      let results;
+      if (content.startsWith('{"cat"')) {
+        let results = JSON.parse(content.replace(/,$/, ''));
+        let args = results['args']
+        if ('provider' in args) {
+          let shape = /(\"input_type_shape.*),\"thread_scheduling_stats\"/.exec(content);
+          ortProfilingData.push([ortProfilingIndex++, args['op_name'], parseInt(results['dur']) / unitConversionFactor, shape[1], args['provider']]);
+        }
+      } else if (content.startsWith('[profiling]')) {
+        results = /\[profiling\] kernel \".*\[(.*)\].*\" (input.*), execution time\: (\d+) ns/.exec(content);
+        if (results) {
+          webgpuProfilingData.push([webgpuProfilingIndex++, results[1], parseInt(results[3]) / unitConversionFactor, results[2]]);
+        }
+      }
+    }
+
+    main();
+  </script>
+</body>
