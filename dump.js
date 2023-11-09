@@ -535,7 +535,7 @@ export class OnnxDumpData {
     // Generate other dump data: input, output.
     window.onnxDump = 1;
     await onnxModelInferenceFn(
-        'performance', this.referenceBackend, this.modelUrl);
+        'performance', this.referenceBackend, this.modelUrl, this.graphOptimizationLevel);
     window.onnxDump = 0;
     await this.setupInputOutputs();
   }

@@ -110,8 +110,8 @@
         if (task === 'dump') {
           await dump.dump(modelName, runTask, getParam('optlevel')||'disabled', getParam('dump')||0);
         } else if (task === 'conformance') {
-          let epOutput = await runTask('conformance', ep);
-          let cpuOutput = await runTask('conformance', 'wasm');
+          let epOutput = await runTask('conformance', ep, modelUrl);
+          let cpuOutput = await runTask('conformance', 'wasm', modelUrl);
           renderTask(task, [epOutput, cpuOutput]);
         } else {
           let times = await runTask(task, ep);
@@ -123,7 +123,7 @@
 
     // For ortProfiling, session.endProfiling will dump results of all runs, so we couldn't have a session run multiple times.
     // For webgpuProfiling, layout conversion is done in first run, so we need to collect data of second run.
-    async function runTask(task, ep, modelUrl) {
+    async function runTask(task, ep, modelUrl, graphOptimizationLevel = 'all') {
       let modelBuffer;
       let oldConsoleLog;
       let session;
@@ -157,8 +157,7 @@
         ort.env.wasm.proxy = true;
         option.freeDimensionOverrides = true;
       }
-      // option.graphOptimizationLevel = "all";
-      option.graphOptimizationLevel = "all";
+      option.graphOptimizationLevel = graphOptimizationLevel;
 
       if (task != 'ortProfiling') {
         const sessionCreateStartTime = performance.now();
