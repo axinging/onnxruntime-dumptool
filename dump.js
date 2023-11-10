@@ -337,7 +337,11 @@ function getOpset(opType, opsets) {
       opType === 'MatMul' || opType === 'Sub' || opType === 'Mul' ||
       opType === 'Add' || opType === 'Div' || opType === 'LayerNormalization' ||
       opType === 'Transpose' || opType === 'Gemm' || opType === 'LeakyRelu' ||
-      opType === 'MaxPool' || opType === 'BatchNormalization') {
+      opType === 'MaxPool' || opType === 'BatchNormalization' ||
+      opType === 'ReduceMean'||
+      opType === 'Pow'||
+      opType === 'Tanh'||
+      opType === 'Sqrt') {
     opset.domain = '';
   }
 
@@ -535,7 +539,8 @@ export class OnnxDumpData {
     // Generate other dump data: input, output.
     window.onnxDump = 1;
     await onnxModelInferenceFn(
-        'performance', this.referenceBackend, this.modelUrl, this.graphOptimizationLevel);
+        'performance', this.referenceBackend, this.modelUrl,
+        this.graphOptimizationLevel);
     window.onnxDump = 0;
     await this.setupInputOutputs();
   }
@@ -729,7 +734,9 @@ export class OnnxDumpData {
       for (const node of nodes) {
         const compareSummary =
             await this.compareSingleNode(node, dumpDataMap, modelName, model);
-        compareSummaries.push(compareSummary);
+            if (compareSummary.result === false) {
+              compareSummaries.push(compareSummary);
+            }
       }
       writeObjectToFile(
           {
@@ -787,5 +794,7 @@ export async function dump(
     await dumpDataMap.compare();
     dumpDataMap.release();
   }
-  console.log("Dump time: " + Math.round((performance.now() - dumpBeginTime)/1000) + "s.");
+  console.log(
+      'Dump time: ' + Math.round((performance.now() - dumpBeginTime) / 1000) +
+      's.');
 }
