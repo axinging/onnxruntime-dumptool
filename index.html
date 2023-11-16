@@ -105,7 +105,10 @@
 
     async function main() {
       await loadScript2();
-      const dump = await import('./dump.js');
+      let dump;
+      if (tasks.includes('dump')){
+        dump = await import('./dump.js');
+      }
       for (let task of tasks.split(',')) {
         if (task === 'dump') {
           await dump.dump(modelName, runTask, getParam('optlevel')||'disabled', getParam('dump')||0);
