@@ -20,12 +20,22 @@ function writeObjectToFile(jsonObject, name, time = 200) {
   if (object instanceof Map) {
     object = Object.fromEntries(object);
   }
-  let jsonStr = name.split('.').pop() === 'jsonc' ? JSON.stringify([object]) :
-                                                    JSON.stringify(object);
-  const file = new Blob([jsonStr], {type: 'application/json'});
-  a.href = URL.createObjectURL(file);
-  a.download = fileName;
-  a.click();
+  try {
+    let jsonStr = name.split('.').pop() === 'jsonc' ? JSON.stringify([object]) :
+                                                      JSON.stringify(object);
+    const file = new Blob([jsonStr], {type: 'application/json'});
+    a.href = URL.createObjectURL(file);
+    a.download = fileName;
+    a.click();
+  } catch (e) {
+    console.warn(" " + name + ", " + typeof(object));
+    let jsonStr = "[" + Object.entries(object).map(el => JSON.stringify(el)).join(",") + "]";
+    const file = new Blob([jsonStr], {type: 'application/json'});
+    a.href = URL.createObjectURL(file);
+    a.download = fileName;
+    a.click();
+    // throw e;
+  }
   sleep(time);
 }
 
