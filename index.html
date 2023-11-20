@@ -131,7 +131,7 @@
 
     // Not sure why this doesn't work for WebNN
     const originConsoleLog = console.log;
-    console.log = processConsoleLog;
+    // console.log = processConsoleLog;
 
     async function createSession(option) {
       if (disableBuffer) {
@@ -182,8 +182,7 @@
         }
       }
       urls = [`./web/dist/ort.all.js`];
-      // urls = urls.concat(['./dump.js']);
-      urls = urls.concat(['./ort-toolkit/models.js', './ort-toolkit/util.js']);
+      urls = urls.concat(['models.js', 'util.js']);
       for (let url of urls) {
         await loadScript(url);
       }
