@@ -130,8 +130,9 @@
     let webgpuProfilingIndex = 0;
 
     // Not sure why this doesn't work for WebNN
+    const isArtifact = (tasks.includes('artifact'));
     const originConsoleLog = console.log;
-    // console.log = processConsoleLog;
+    console.log = isArtifact? processConsoleLog : console.log;
 
     async function createSession(option) {
       if (disableBuffer) {

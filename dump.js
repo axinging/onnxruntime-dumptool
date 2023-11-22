@@ -786,7 +786,7 @@ export class OnnxDumpData {
 
 export async function dump(
     modelName, onnxModelInferenceFn, graphOptimizationLevel = 'disabled',
-    dumpOrCmp = '0') {
+    dumpOrCmp = 0) {
   const useFile = dumpOrCmp != 0;
   const dumpBeginTime = performance.now();
   const dumpDataMap =
