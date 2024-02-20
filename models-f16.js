@@ -253,7 +253,7 @@ function getFeedInfo(feed, type, data, dims) {
     } else if (type === 'uint16') {
       typedArray = Uint16Array;
     } else if (type === 'float16') {
-      typedArray = Uint16Array;
+      typedArray = Float16Array;
     } else if (type === 'float32') {
       typedArray = Float32Array;
     } else if (type === 'int32') {
@@ -278,6 +278,12 @@ function getFeedInfo(feed, type, data, dims) {
       } else {
         _data = typedArray.from({length: size}, () => data);
       }
+      const float32 = new Float32Array(size);
+      for (let i = 0; i < _data.length; i ++) {
+        float32[i] = _data[i];
+      }
+      console.log(_data);
+      console.log(float32);
     }
 
     if (i > feedsInfo.length - 1) {
