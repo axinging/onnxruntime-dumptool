@@ -278,7 +278,6 @@ function getFeedInfo(feed, type, data, dims) {
       } else {
         _data = typedArray.from({length: size}, () => data);
       }
-      console.log(_data);
     }
 
     if (i > feedsInfo.length - 1) {
