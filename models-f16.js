@@ -253,7 +253,7 @@ function getFeedInfo(feed, type, data, dims) {
     } else if (type === 'uint16') {
       typedArray = Uint16Array;
     } else if (type === 'float16') {
-      typedArray = Float16Array;
+      typedArray = typeof Float16Array !== 'undefined' && Float16Array.from ? Float16Array : Uint16Array;;
     } else if (type === 'float32') {
       typedArray = Float32Array;
     } else if (type === 'int32') {
@@ -272,13 +272,16 @@ function getFeedInfo(feed, type, data, dims) {
     } else {
       size = dims.reduce((a, b) => a * b);
       if (data === 'random') {
-        _data = typedArray.from({length: size}, () => Math.random());
+        // 0x3c00, 15360
+        _data = typedArray.from({length: size}, () => typeof Float16Array === 'undefined'? 15360 : 1.0);
       } else if (data === 'ramp') {
         _data = typedArray.from({length: size}, (_, i) => i);
       } else {
         _data = typedArray.from({length: size}, () => data);
       }
-      const float32 = new Float32Array(size);
+    }
+    if (typeof Float16Array !== 'undefined') {
+     const float32 = new Float32Array(size);
       for (let i = 0; i < _data.length; i ++) {
         float32[i] = _data[i];
       }
